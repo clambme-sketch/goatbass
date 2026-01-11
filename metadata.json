@@ -1,0 +1,5 @@
+{
+  "name": "Fretless Bass Emulator V7.0",
+  "description": "A low-latency, 6-string fretless electric bass emulator designed for iPad with professional audio synthesis and modulation controls.",
+  "requestFramePermissions": []
+}

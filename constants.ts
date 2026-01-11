@@ -12,21 +12,20 @@ const STRING_POOL = [
 ];
 
 export const getTuning = (count: number) => {
-  // 4 strings: E, A, D, G (Standard) - Reversed from Pool
-  // 5 strings: B, E, A, D, G (Low B)
-  // 6 strings: B, E, A, D, G, C (Low B, High C)
+  // Configuration: Standard
+  // Index 0 (Top of Screen) = Highest String (Thinnest)
+  // Index N (Bottom of Screen) = Lowest String (Thickest)
   
   const clamped = Math.max(4, Math.min(8, count));
   
   // Slice from pool (High -> Low). 
-  // We reverse to get Low -> High (Top -> Bottom on screen) to match player perspective (Low string closest to head)
   switch (clamped) {
-      case 4: return STRING_POOL.slice(2, 6).reverse(); // G, D, A, E -> E, A, D, G
-      case 5: return STRING_POOL.slice(2, 7).reverse(); // G, D, A, E, B -> B, E, A, D, G
-      case 6: return STRING_POOL.slice(1, 7).reverse(); // C, G, D, A, E, B -> B, E, A, D, G, C
-      case 7: return STRING_POOL.slice(0, 7).reverse();
-      case 8: return STRING_POOL.slice(0, 8).reverse();
-      default: return STRING_POOL.slice(1, 7).reverse();
+      case 4: return STRING_POOL.slice(2, 6); // G, D, A, E
+      case 5: return STRING_POOL.slice(2, 7); // G, D, A, E, B
+      case 6: return STRING_POOL.slice(1, 7); // C, G, D, A, E, B
+      case 7: return STRING_POOL.slice(0, 7);
+      case 8: return STRING_POOL.slice(0, 8);
+      default: return STRING_POOL.slice(1, 7);
   }
 };
 

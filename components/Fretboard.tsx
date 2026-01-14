@@ -590,8 +590,8 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
         <div className={`absolute inset-0 flex flex-col justify-between ${verticalPadding} z-10`}>
             {currentTuning.map((stringData, i) => {
                  // Calculate Visual Thickness:
-                 // Top string (i=0) is Highest Pitch (Thin).
-                 // Bottom string (i=Max) is Lowest Pitch (Thick).
+                 // Top string (i=0) is High Pitch (Thin).
+                 // Bottom string (i=Max) is Low Pitch (Thick).
                  const thickness = 3.0 + (i * 0.8);
                  
                  const grooveHeight = thickness + 4; 
@@ -764,8 +764,8 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
       <div className={`absolute inset-0 flex flex-col justify-between pointer-events-none ${verticalPadding} z-30`}>
         {currentTuning.map((stringData, index) => {
           // Thickness Calculation:
-          // Index 0 = Top = High Pitch (C) = Thin.
-          // Index N = Bottom = Low Pitch (B) = Thick.
+          // Top string (i=0) is High Pitch (Thin).
+          // Bottom string (i=Max) is Low Pitch (Thick).
           const thickness = 3.0 + (index * 0.8);
           
           const isVibrating = vibratingStrings.has(index);

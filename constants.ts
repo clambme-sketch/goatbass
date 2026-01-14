@@ -12,13 +12,15 @@ const STRING_POOL = [
 ];
 
 export const getTuning = (count: number) => {
-  // Configuration: Standard
-  // Index 0 (Top of Screen) = Highest String (Thinnest)
-  // Index N (Bottom of Screen) = Lowest String (Thickest)
+  // Configuration: Chart/Tablature Perspective
+  // Index 0 (Top of Screen) = Highest Pitch (Thinnest String)
+  // Index N (Bottom of Screen) = Lowest Pitch (Thickest String)
   
   const clamped = Math.max(4, Math.min(8, count));
   
-  // Slice from pool (High -> Low). 
+  // We slice from the pool (High -> Low).
+  // Index 0 will be the highest note in the set.
+  // Last Index will be the lowest note (B or E).
   switch (clamped) {
       case 4: return STRING_POOL.slice(2, 6); // G, D, A, E
       case 5: return STRING_POOL.slice(2, 7); // G, D, A, E, B

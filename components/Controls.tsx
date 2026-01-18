@@ -41,7 +41,7 @@ const PRESETS: Record<PresetName, Partial<AudioSettings>> = {
 
 type Tab = 'preamp' | 'synthesis' | 'effects' | 'system';
 
-// --- SUB COMPONENTS (Optimized for React 20) ---
+// --- SUB COMPONENTS (Optimized for React 18) ---
 
 const Slider = memo(({ label, value, min, max, step, onChange, unit = '', vertical = false, theme }: any) => {
     const trackRef = useRef<HTMLDivElement>(null);
@@ -490,7 +490,7 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
                                         : isNeon
                                         ? 'bg-black border-fuchsia-900 text-fuchsia-500 hover:bg-fuchsia-900/40 hover:text-fuchsia-300 hover:border-fuchsia-500'
                                         : isCrystal
-                                        ? 'bg-white border-white/50 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 shadow-sm'
+                                        ? 'bg-white border-white/50 text-slate-500 hover:bg-indigo-50 hover:text-indigo-50 hover:border-indigo-200 shadow-sm'
                                         : 'bg-[#222] border-stone-700 text-stone-400 hover:bg-[#333] hover:text-white'
                                     }`}
                                 >

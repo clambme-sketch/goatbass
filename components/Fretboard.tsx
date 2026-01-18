@@ -762,7 +762,7 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
           const thickness = 3.0 + (index * 0.8);
           
           // --- VIBRATION CALCULATION (CSS VARS) ---
-          const activeTouch = Array.from(visualTouches.values()).find((t: TouchData) => t.stringIndex === index);
+          const activeTouch = (Array.from(visualTouches.values()) as TouchData[]).find((t) => t.stringIndex === index);
           const isVibrating = !!activeTouch;
           const velocity = activeTouch?.velocity ?? 0;
           

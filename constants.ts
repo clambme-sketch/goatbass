@@ -12,21 +12,20 @@ const STRING_POOL = [
 ];
 
 export const getTuning = (count: number) => {
-  // Configuration: Chart/Tablature Perspective
-  // Index 0 (Top of Screen) = Highest Pitch (Thinnest String)
-  // Index N (Bottom of Screen) = Lowest Pitch (Thickest String)
+  // Configuration: Standard Tablature/Chart Perspective
+  // TOP of Screen (Index 0) = Thinnest String (Highest Pitch)
+  // BOTTOM of Screen = Thickest String (Lowest Pitch)
   
   const clamped = Math.max(4, Math.min(8, count));
   
-  // We slice from the pool (High -> Low).
-  // Index 0 will be the highest note in the set.
-  // Last Index will be the lowest note (B or E).
+  // STRING_POOL is ordered High -> Low.
+  // We slice neatly to get the requested range.
   switch (clamped) {
-      case 4: return STRING_POOL.slice(2, 6); // G, D, A, E
-      case 5: return STRING_POOL.slice(2, 7); // G, D, A, E, B
-      case 6: return STRING_POOL.slice(1, 7); // C, G, D, A, E, B
-      case 7: return STRING_POOL.slice(0, 7);
-      case 8: return STRING_POOL.slice(0, 8);
+      case 4: return STRING_POOL.slice(2, 6); // Top: G, D, A, E :Bottom
+      case 5: return STRING_POOL.slice(2, 7); // Top: G, D, A, E, B :Bottom
+      case 6: return STRING_POOL.slice(1, 7); // Top: C, G, D, A, E, B :Bottom (6-String Bass Standard)
+      case 7: return STRING_POOL.slice(0, 7); // Top: F, C, G, D, A, E, B :Bottom
+      case 8: return STRING_POOL.slice(0, 8); // Full range
       default: return STRING_POOL.slice(1, 7);
   }
 };

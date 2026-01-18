@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, memo } from 'react';
 import { AudioSettings, PresetName } from '../types';
 import { audioEngine } from '../services/AudioEngine';
 
@@ -9,22 +9,17 @@ interface ControlsProps {
   setSettings: React.Dispatch<React.SetStateAction<AudioSettings>>;
 }
 
-// Default values for audio parameters to reset to before applying a preset.
+// --- CONSTANTS ---
 const DEFAULT_PATCH_STATE: Partial<AudioSettings> = {
-    // Mixer / Preamp
     volume: 0.85, distortion: 0, stereoWidth: 0.5,
     eqBass: 0, eqMid: 0, eqTreble: 0,
     compressorThreshold: -20, compressorRatio: 4,
-    
-    // Synthesis
     waveform: 'sawtooth', subLevel: 0, noiseLevel: 0,
     tone: 0.5, filterResonance: 0, filterEnvAmount: 0,
     attack: 0.01, release: 0.2, sustain: 1.0, glideTime: 0.05,
     velocitySensitivity: 0.5,
     octavePedal: false, octaveShift: false,
     isMonophonic: false,
-
-    // Effects
     phaserMix: 0, phaserRate: 1,
     tremoloDepth: 0, tremoloRate: 4,
     chorus: 0, reverb: 0, vibrato: 0,
@@ -32,164 +27,31 @@ const DEFAULT_PATCH_STATE: Partial<AudioSettings> = {
 };
 
 const PRESETS: Record<PresetName, Partial<AudioSettings>> = {
-  'Modern': {
-    waveform: 'sawtooth',
-    tone: 0.85,
-    filterResonance: 0.2,
-    filterEnvAmount: 0.3,
-    distortion: 0.15,
-    compressorThreshold: -25, compressorRatio: 4,
-    eqBass: 2, eqMid: -2, eqTreble: 4,
-    chorus: 0.1, reverb: 0.15, delayMix: 0,
-    glideTime: 0.05,
-    sustain: 1.0,
-    subLevel: 0.2,
-    attack: 0.01, release: 0.3,
-  },
-  'Jazz': {
-    waveform: 'sawtooth',
-    tone: 0.4,
-    filterResonance: 0.0,
-    distortion: 0.05,
-    compressorThreshold: -15, compressorRatio: 2,
-    eqBass: 4, eqMid: 2, eqTreble: -5,
-    chorus: 0.2, reverb: 0.2,
-    glideTime: 0.1,
-    sustain: 0.8,
-    attack: 0.03, release: 0.4,
-  },
-  'Precision': {
-    waveform: 'square',
-    tone: 0.5,
-    distortion: 0.1,
-    compressorThreshold: -20, compressorRatio: 8,
-    eqBass: 3, eqMid: 4, eqTreble: 0,
-    reverb: 0.1,
-    sustain: 0.4, // Foam mute
-    glideTime: 0.02,
-    attack: 0.02, release: 0.15,
-    stereoWidth: 0.1,
-  },
-  'Synth': {
-    waveform: 'sawtooth',
-    tone: 0.3,
-    filterResonance: 0.5,
-    filterEnvAmount: 0.6,
-    distortion: 0.15,
-    compressorThreshold: -25, compressorRatio: 5,
-    eqBass: 4, eqMid: 1, eqTreble: 3,
-    chorus: 0.3, reverb: 0.2, delayMix: 0,
-    sustain: 0.9,
-    subLevel: 0.8,
-    attack: 0.01, release: 0.2,
-    glideTime: 0.08,
-    octavePedal: true,
-  },
-  'Upright': {
-    waveform: 'triangle',
-    tone: 0.2,
-    distortion: 0.05,
-    compressorThreshold: -10, compressorRatio: 2,
-    eqBass: 5, eqMid: -2, eqTreble: -10,
-    reverb: 0.3,
-    sustain: 0.15,
-    glideTime: 0.15,
-    noiseLevel: 0.3,
-    attack: 0.06, release: 0.3,
-  },
-  'Soloist': {
-    waveform: 'sawtooth',
-    tone: 0.75,
-    filterResonance: 0.4,
-    distortion: 0.1,
-    compressorThreshold: -20, compressorRatio: 4,
-    chorus: 0.4, reverb: 0.6, delayMix: 0.25,
-    vibrato: 0.4,
-    glideTime: 0.08,
-    sustain: 1.0,
-    attack: 0.04, release: 0.5,
-  },
-  'Dub': {
-    waveform: 'triangle',
-    tone: 0.1,
-    distortion: 0.05,
-    compressorThreshold: -20, compressorRatio: 10,
-    eqBass: 10, eqMid: -5, eqTreble: -10,
-    reverb: 0.2, delayMix: 0.4, delayTime: 0.6, delayFeedback: 0.5,
-    sustain: 0.8,
-    subLevel: 1.0,
-    attack: 0.02, release: 0.2,
-  },
-  'Fuzz': {
-    waveform: 'square',
-    tone: 0.8,
-    distortion: 0.8,
-    compressorThreshold: -40, compressorRatio: 12,
-    eqBass: 2, eqMid: 5, eqTreble: 2,
-    reverb: 0.1,
-    sustain: 1.0,
-    attack: 0.01, release: 0.3,
-  },
-  'Ethereal': {
-    waveform: 'sawtooth',
-    tone: 0.6,
-    filterResonance: 0.1,
-    distortion: 0.0,
-    compressorThreshold: -20, compressorRatio: 2,
-    chorus: 0.6, reverb: 0.7, delayMix: 0.5, delayTime: 0.8, delayFeedback: 0.7,
-    eqBass: -2, eqMid: 0, eqTreble: 5,
-    attack: 0.2, release: 2.0, sustain: 1.0,
-    vibrato: 0.2,
-    stereoWidth: 1.0
-  },
-  'Psychedelic': {
-      waveform: 'sawtooth',
-      tone: 0.7,
-      phaserMix: 0.7, phaserRate: 0.5,
-      tremoloDepth: 0.6, tremoloRate: 4,
-      distortion: 0.3,
-      reverb: 0.5, delayMix: 0.3,
-      glideTime: 0.1,
-      attack: 0.05, release: 0.5
-  }
+  'Modern': { waveform: 'sawtooth', tone: 0.85, filterResonance: 0.2, filterEnvAmount: 0.3, distortion: 0.15, compressorThreshold: -25, compressorRatio: 4, eqBass: 2, eqMid: -2, eqTreble: 4, chorus: 0.1, reverb: 0.15, delayMix: 0, glideTime: 0.05, sustain: 1.0, subLevel: 0.2, attack: 0.01, release: 0.3 },
+  'Jazz': { waveform: 'sawtooth', tone: 0.4, filterResonance: 0.0, distortion: 0.05, compressorThreshold: -15, compressorRatio: 2, eqBass: 4, eqMid: 2, eqTreble: -5, chorus: 0.2, reverb: 0.2, glideTime: 0.1, sustain: 0.8, attack: 0.03, release: 0.4 },
+  'Precision': { waveform: 'square', tone: 0.5, distortion: 0.1, compressorThreshold: -20, compressorRatio: 8, eqBass: 3, eqMid: 4, eqTreble: 0, reverb: 0.1, sustain: 0.4, glideTime: 0.02, attack: 0.02, release: 0.15, stereoWidth: 0.1 },
+  'Synth': { waveform: 'sawtooth', tone: 0.3, filterResonance: 0.5, filterEnvAmount: 0.6, distortion: 0.15, compressorThreshold: -25, compressorRatio: 5, eqBass: 4, eqMid: 1, eqTreble: 3, chorus: 0.3, reverb: 0.2, delayMix: 0, sustain: 0.9, subLevel: 0.8, attack: 0.01, release: 0.2, glideTime: 0.08, octavePedal: true },
+  'Upright': { waveform: 'triangle', tone: 0.2, distortion: 0.05, compressorThreshold: -10, compressorRatio: 2, eqBass: 5, eqMid: -2, eqTreble: -10, reverb: 0.3, sustain: 0.15, glideTime: 0.15, noiseLevel: 0.3, attack: 0.06, release: 0.3 },
+  'Soloist': { waveform: 'sawtooth', tone: 0.75, filterResonance: 0.4, distortion: 0.1, compressorThreshold: -20, compressorRatio: 4, chorus: 0.4, reverb: 0.6, delayMix: 0.25, vibrato: 0.4, glideTime: 0.08, sustain: 1.0, attack: 0.04, release: 0.5 },
+  'Dub': { waveform: 'triangle', tone: 0.1, distortion: 0.05, compressorThreshold: -20, compressorRatio: 10, eqBass: 10, eqMid: -5, eqTreble: -10, reverb: 0.2, delayMix: 0.4, delayTime: 0.6, delayFeedback: 0.5, sustain: 0.8, subLevel: 1.0, attack: 0.02, release: 0.2 },
+  'Fuzz': { waveform: 'square', tone: 0.8, distortion: 0.8, compressorThreshold: -40, compressorRatio: 12, eqBass: 2, eqMid: 5, eqTreble: 2, reverb: 0.1, sustain: 1.0, attack: 0.01, release: 0.3 },
+  'Ethereal': { waveform: 'sawtooth', tone: 0.6, filterResonance: 0.1, distortion: 0.0, compressorThreshold: -20, compressorRatio: 2, chorus: 0.6, reverb: 0.7, delayMix: 0.5, delayTime: 0.8, delayFeedback: 0.7, eqBass: -2, eqMid: 0, eqTreble: 5, attack: 0.2, release: 2.0, sustain: 1.0, vibrato: 0.2, stereoWidth: 1.0 },
+  'Psychedelic': { waveform: 'sawtooth', tone: 0.7, phaserMix: 0.7, phaserRate: 0.5, tremoloDepth: 0.6, tremoloRate: 4, distortion: 0.3, reverb: 0.5, delayMix: 0.3, glideTime: 0.1, attack: 0.05, release: 0.5 }
 };
 
 type Tab = 'preamp' | 'synthesis' | 'effects' | 'system';
 
-export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, setSettings }) => {
-  const [activeTab, setActiveTab] = useState<Tab>('preamp');
-  
-  if (!isOpen) return null;
+// --- SUB COMPONENTS (Optimized for React 20) ---
 
-  const theme = settings.theme;
-  const isFlux = theme === 'flux';
-  const isTerminal = theme === 'terminal';
-  const isVintage = theme === 'vintage';
-  const isNeon = theme === 'neon';
-  const isCrystal = theme === 'crystal';
-
-  const updateSetting = (key: keyof AudioSettings, value: number | string | boolean) => {
-    const newSettings = { ...settings, [key]: value };
-    setSettings(newSettings);
-    audioEngine.updateSettings(newSettings);
-  };
-
-  const loadPreset = (name: PresetName) => {
-    const preset = PRESETS[name];
-    const newSettings = { 
-        ...settings, 
-        ...DEFAULT_PATCH_STATE, 
-        ...preset 
-    };
-    setSettings(newSettings);
-    audioEngine.updateSettings(newSettings);
-  };
-
-  // --- UI Components ---
-
-  const Slider = ({ label, value, min, max, step, onChange, unit = '', vertical = false }: any) => {
+const Slider = memo(({ label, value, min, max, step, onChange, unit = '', vertical = false, theme }: any) => {
     const trackRef = useRef<HTMLDivElement>(null);
     const percentage = ((value - min) / (max - min)) * 100;
+    
+    // Theme Flags
+    const isFlux = theme === 'flux';
+    const isVintage = theme === 'vintage';
+    const isNeon = theme === 'neon';
+    const isCrystal = theme === 'crystal';
 
     const handlePointerDown = (e: React.PointerEvent) => {
         e.preventDefault(); 
@@ -222,24 +84,16 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
          
          let percent = 0;
          if (vertical) {
-             // Bottom is 0%, Top is 100%
-             // y goes down (increases) from top. 
-             // rect.height is at bottom relative to top.
-             // distance from bottom = rect.height - (e.clientY - rect.top)
              const relativeY = e.clientY - rect.top;
              const fromBottom = rect.height - relativeY;
              percent = Math.max(0, Math.min(1, fromBottom / rect.height));
          } else {
-             // Left is 0%, Right is 100%
              const relativeX = e.clientX - rect.left;
              percent = Math.max(0, Math.min(1, relativeX / rect.width));
          }
 
          let newValue = min + (percent * (max - min));
-         if (step) {
-             newValue = Math.round(newValue / step) * step;
-         }
-         // Clamp
+         if (step) newValue = Math.round(newValue / step) * step;
          newValue = Math.max(min, Math.min(max, newValue));
 
          onChange({ target: { value: newValue } });
@@ -250,11 +104,9 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
         onPointerDown: handlePointerDown,
         onPointerMove: handlePointerMove,
         onPointerUp: handlePointerUp,
-        // Ensure browser doesn't scroll while dragging
         style: { touchAction: 'none' } as React.CSSProperties
     };
 
-    // Modern / Flux Look
     if (isFlux) {
         return (
             <div className={`relative group ${vertical ? 'h-40 w-12 mx-auto' : 'w-full py-2'}`}>
@@ -264,17 +116,9 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
                         <span className="text-[10px] font-mono text-cyan-400 drop-shadow-[0_0_5px_rgba(6,182,212,0.8)]">{typeof value === 'number' && unit === '%' ? Math.round(value * 100) : value}{unit}</span>
                     </div>
                 )}
-                <div 
-                    {...containerProps}
-                    className={`relative bg-slate-900 border border-slate-700 rounded-full shadow-inner cursor-pointer ${vertical ? 'h-full w-2 mx-auto' : 'h-2 w-full'}`}
-                >
+                <div {...containerProps} className={`relative bg-slate-900 border border-slate-700 rounded-full shadow-inner cursor-pointer ${vertical ? 'h-full w-2 mx-auto' : 'h-2 w-full'}`}>
                     <div className={`absolute bg-cyan-500 shadow-[0_0_10px_cyan] rounded-full pointer-events-none ${vertical ? 'bottom-0 w-full' : 'h-full'}`} style={vertical ? { height: `${percentage}%` } : { width: `${percentage}%` }}></div>
-                    <div 
-                        className={`absolute w-4 h-4 bg-cyan-950 border border-cyan-400 rounded-full shadow-[0_0_15px_rgba(6,182,212,0.8)] pointer-events-none hover:scale-125 transition-transform
-                            ${vertical ? 'left-1/2 -translate-x-1/2' : 'top-1/2 -translate-y-1/2'}
-                        `}
-                        style={vertical ? { bottom: `calc(${percentage}% - 8px)` } : { left: `calc(${percentage}% - 8px)` }}
-                    >
+                    <div className={`absolute w-4 h-4 bg-cyan-950 border border-cyan-400 rounded-full shadow-[0_0_15px_rgba(6,182,212,0.8)] pointer-events-none hover:scale-125 transition-transform ${vertical ? 'left-1/2 -translate-x-1/2' : 'top-1/2 -translate-y-1/2'}`} style={vertical ? { bottom: `calc(${percentage}% - 8px)` } : { left: `calc(${percentage}% - 8px)` }}>
                         <div className="absolute inset-0 bg-cyan-400 opacity-20 rounded-full animate-pulse"></div>
                     </div>
                 </div>
@@ -283,7 +127,6 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
         );
     } 
 
-    // Neon Look
     if (isNeon) {
         return (
             <div className={`relative group ${vertical ? 'h-40 w-12 mx-auto' : 'w-full py-2'}`}>
@@ -293,24 +136,15 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
                         <span className="text-[10px] font-mono text-purple-200 drop-shadow-[0_0_5px_rgba(168,85,247,0.8)]">{typeof value === 'number' && unit === '%' ? Math.round(value * 100) : value}{unit}</span>
                     </div>
                 )}
-                <div 
-                    {...containerProps}
-                    className={`relative bg-purple-950 border border-fuchsia-900 rounded shadow-inner cursor-pointer ${vertical ? 'h-full w-2 mx-auto' : 'h-2 w-full'}`}
-                >
+                <div {...containerProps} className={`relative bg-purple-950 border border-fuchsia-900 rounded shadow-inner cursor-pointer ${vertical ? 'h-full w-2 mx-auto' : 'h-2 w-full'}`}>
                     <div className={`absolute bg-gradient-to-r from-fuchsia-600 to-purple-600 shadow-[0_0_8px_#d946ef] rounded pointer-events-none ${vertical ? 'bottom-0 w-full bg-gradient-to-t' : 'h-full'}`} style={vertical ? { height: `${percentage}%` } : { width: `${percentage}%` }}></div>
-                    <div 
-                        className={`absolute w-4 h-4 bg-black border-2 border-fuchsia-500 rounded-sm shadow-[0_0_10px_#d946ef] pointer-events-none rotate-45 hover:scale-125 transition-transform
-                            ${vertical ? 'left-1/2 -translate-x-1/2' : 'top-1/2 -translate-y-1/2'}
-                        `}
-                        style={vertical ? { bottom: `calc(${percentage}% - 8px)` } : { left: `calc(${percentage}% - 8px)` }}
-                    ></div>
+                    <div className={`absolute w-4 h-4 bg-black border-2 border-fuchsia-500 rounded-sm shadow-[0_0_10px_#d946ef] pointer-events-none rotate-45 hover:scale-125 transition-transform ${vertical ? 'left-1/2 -translate-x-1/2' : 'top-1/2 -translate-y-1/2'}`} style={vertical ? { bottom: `calc(${percentage}% - 8px)` } : { left: `calc(${percentage}% - 8px)` }}></div>
                 </div>
                 {vertical && <div className="text-[9px] text-center mt-3 text-fuchsia-400 font-bold tracking-wider">{label}</div>}
             </div>
         );
     }
 
-    // Crystal Look (Light Mode)
     if (isCrystal) {
         return (
              <div className={`relative group ${vertical ? 'h-40 w-12 mx-auto' : 'w-full py-2'}`}>
@@ -320,17 +154,9 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
                         <span className="text-[10px] font-mono font-bold text-indigo-700">{typeof value === 'number' && unit === '%' ? Math.round(value * 100) : value}{unit}</span>
                     </div>
                 )}
-                <div 
-                    {...containerProps}
-                    className={`relative bg-slate-200/60 rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] backdrop-blur-sm cursor-pointer ${vertical ? 'h-full w-2 mx-auto' : 'h-2 w-full'}`}
-                >
+                <div {...containerProps} className={`relative bg-slate-200/60 rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] backdrop-blur-sm cursor-pointer ${vertical ? 'h-full w-2 mx-auto' : 'h-2 w-full'}`}>
                     <div className={`absolute bg-gradient-to-r from-indigo-400 to-violet-400 rounded-full pointer-events-none ${vertical ? 'bottom-0 w-full bg-gradient-to-t' : 'h-full'}`} style={vertical ? { height: `${percentage}%` } : { width: `${percentage}%` }}></div>
-                    <div 
-                        className={`absolute w-4 h-4 bg-white border border-white shadow-[0_2px_5px_rgba(0,0,0,0.15)] rounded-full pointer-events-none hover:scale-125 transition-transform flex items-center justify-center
-                            ${vertical ? 'left-1/2 -translate-x-1/2' : 'top-1/2 -translate-y-1/2'}
-                        `}
-                        style={vertical ? { bottom: `calc(${percentage}% - 8px)` } : { left: `calc(${percentage}% - 8px)` }}
-                    >
+                    <div className={`absolute w-4 h-4 bg-white border border-white shadow-[0_2px_5px_rgba(0,0,0,0.15)] rounded-full pointer-events-none hover:scale-125 transition-transform flex items-center justify-center ${vertical ? 'left-1/2 -translate-x-1/2' : 'top-1/2 -translate-y-1/2'}`} style={vertical ? { bottom: `calc(${percentage}% - 8px)` } : { left: `calc(${percentage}% - 8px)` }}>
                          <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
                     </div>
                 </div>
@@ -349,17 +175,11 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
             
             <div 
                 {...containerProps}
-                className={`relative rounded shadow-inner border-b border-white/5 cursor-pointer ${
-                vertical 
-                ? 'h-full w-4' 
-                : 'h-3 w-full'
-            } ${isVintage ? 'bg-[#000] border-[#333] shadow-[0_1px_1px_rgba(255,255,255,0.2)]' : 'bg-[#080808] border-stone-800'}`}>
+                className={`relative rounded shadow-inner border-b border-white/5 cursor-pointer ${vertical ? 'h-full w-4' : 'h-3 w-full'} ${isVintage ? 'bg-[#000] border-[#333] shadow-[0_1px_1px_rgba(255,255,255,0.2)]' : 'bg-[#080808] border-stone-800'}`}>
                 
                 <div 
                     className={`absolute rounded-sm shadow-[0_4px_6px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center pointer-events-none 
-                    ${isVintage 
-                        ? 'bg-gradient-to-b from-[#4a3b2a] to-[#1e160e] border border-[#1e160e] shadow-[0_2px_5px_rgba(0,0,0,0.8)]' 
-                        : 'bg-gradient-to-b from-stone-500 to-stone-800 border border-black'}
+                    ${isVintage ? 'bg-gradient-to-b from-[#4a3b2a] to-[#1e160e] border border-[#1e160e] shadow-[0_2px_5px_rgba(0,0,0,0.8)]' : 'bg-gradient-to-b from-stone-500 to-stone-800 border border-black'}
                     ${vertical ? 'left-[-12px] right-[-12px] h-8' : 'top-[-10px] bottom-[-10px] w-8'}
                     `}
                     style={vertical ? { bottom: `calc(${percentage}% - 16px)` } : { left: `calc(${percentage}% - 16px)` }}
@@ -375,55 +195,95 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
             {vertical && <label className={`mt-3 text-[9px] font-black uppercase tracking-widest font-serif ${isVintage ? 'text-[#3d2e1e]' : 'text-stone-500'}`}>{label}</label>}
         </div>
     );
-  };
+});
 
-  const ToggleBtn = ({ label, active, onClick }: any) => {
-      let activeClass = '';
-      if (isFlux) {
-          activeClass = active ? 'bg-cyan-600 text-white border-cyan-400 shadow-[0_0_15px_cyan]' : 'bg-slate-900 text-slate-500 border-slate-800';
-      } else if (isVintage) {
-          activeClass = active ? 'bg-[#f7e7ce] text-[#3d2e1e] border-[#b08d55] shadow-[0_0_10px_#f7e7ce,inset_0_0_5px_white]' : 'bg-[#3b2b20] text-[#a89078] border-[#5c4b3a]';
-      } else if (isNeon) {
-          activeClass = active ? 'bg-fuchsia-700 text-white border-fuchsia-400 shadow-[0_0_15px_#d946ef]' : 'bg-black text-fuchsia-900 border-fuchsia-900/50';
-      } else if (isCrystal) {
-          activeClass = active ? 'bg-white text-indigo-700 border-white shadow-[0_2px_10px_rgba(0,0,0,0.1)]' : 'bg-slate-100 text-slate-500 border-transparent';
-      } else {
-          activeClass = active ? 'bg-white text-black border-white shadow-[0_0_10px_white]' : 'bg-[#222] text-stone-500 border-stone-700';
-      }
+const ToggleBtn = memo(({ label, active, onClick, theme }: any) => {
+    let activeClass = '';
+    const isFlux = theme === 'flux';
+    const isVintage = theme === 'vintage';
+    const isNeon = theme === 'neon';
+    const isCrystal = theme === 'crystal';
 
-      return (
-          <button onClick={onClick} className={`p-4 rounded border text-[10px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-95 ${activeClass}`}>
-              {label}
-              {active && <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>}
-          </button>
-      )
-  };
+    if (isFlux) {
+        activeClass = active ? 'bg-cyan-600 text-white border-cyan-400 shadow-[0_0_15px_cyan]' : 'bg-slate-900 text-slate-500 border-slate-800';
+    } else if (isVintage) {
+        activeClass = active ? 'bg-[#f7e7ce] text-[#3d2e1e] border-[#b08d55] shadow-[0_0_10px_#f7e7ce,inset_0_0_5px_white]' : 'bg-[#3b2b20] text-[#a89078] border-[#5c4b3a]';
+    } else if (isNeon) {
+        activeClass = active ? 'bg-fuchsia-700 text-white border-fuchsia-400 shadow-[0_0_15px_#d946ef]' : 'bg-black text-fuchsia-900 border-fuchsia-900/50';
+    } else if (isCrystal) {
+        activeClass = active ? 'bg-white text-indigo-700 border-white shadow-[0_2px_10px_rgba(0,0,0,0.1)]' : 'bg-slate-100 text-slate-500 border-transparent';
+    } else {
+        activeClass = active ? 'bg-white text-black border-white shadow-[0_0_10px_white]' : 'bg-[#222] text-stone-500 border-stone-700';
+    }
 
-  const TabButton = ({ id, label }: { id: Tab, label: string }) => {
-      const isActive = activeTab === id;
-      let style = '';
-
-      if (isFlux) {
-          style = isActive ? 'text-cyan-400 border-b-2 border-cyan-400 bg-cyan-950/50 shadow-[0_0_10px_rgba(6,182,212,0.2)]' : 'text-slate-500 border-b-2 border-transparent hover:text-slate-300';
-      } else if (isVintage) {
-          style = isActive ? 'text-[#2a1d12] border-b-2 border-[#b08d55] bg-gradient-to-b from-[#e6dcc3] to-[#d1c4a7] shadow-sm' : 'text-[#5c4b3a] border-transparent hover:text-[#3d2e1e] hover:bg-[#d1c4a7]/50';
-      } else if (isNeon) {
-          style = isActive ? 'text-fuchsia-300 border-b-2 border-fuchsia-500 bg-fuchsia-900/20 shadow-[0_0_15px_rgba(217,70,239,0.3)]' : 'text-purple-700 border-transparent hover:text-fuchsia-500';
-      } else if (isCrystal) {
-          style = isActive ? 'text-indigo-600 border-b-2 border-indigo-400 bg-white/40' : 'text-slate-400 border-b-2 border-transparent hover:text-slate-600';
-      } else {
-          style = isActive ? 'text-white border-b-2 border-white bg-white/10' : 'text-stone-500 border-transparent hover:text-stone-300 bg-black/20';
-      }
-      
-      return (
-        <button 
-            onClick={() => setActiveTab(id)}
-            className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all ${style}`}
-        >
+    return (
+        <button onClick={onClick} className={`p-4 rounded border text-[10px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-95 ${activeClass}`}>
             {label}
+            {active && <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>}
         </button>
-      );
-  }
+    )
+});
+
+const TabButton = memo(({ id, label, activeTab, setActiveTab, theme }: { id: Tab, label: string, activeTab: Tab, setActiveTab: (t: Tab) => void, theme: string }) => {
+    const isActive = activeTab === id;
+    let style = '';
+    const isFlux = theme === 'flux';
+    const isVintage = theme === 'vintage';
+    const isNeon = theme === 'neon';
+    const isCrystal = theme === 'crystal';
+
+    if (isFlux) {
+        style = isActive ? 'text-cyan-400 border-b-2 border-cyan-400 bg-cyan-950/50 shadow-[0_0_10px_rgba(6,182,212,0.2)]' : 'text-slate-500 border-b-2 border-transparent hover:text-slate-300';
+    } else if (isVintage) {
+        style = isActive ? 'text-[#2a1d12] border-b-2 border-[#b08d55] bg-gradient-to-b from-[#e6dcc3] to-[#d1c4a7] shadow-sm' : 'text-[#5c4b3a] border-transparent hover:text-[#3d2e1e] hover:bg-[#d1c4a7]/50';
+    } else if (isNeon) {
+        style = isActive ? 'text-fuchsia-300 border-b-2 border-fuchsia-500 bg-fuchsia-900/20 shadow-[0_0_15px_rgba(217,70,239,0.3)]' : 'text-purple-700 border-transparent hover:text-fuchsia-500';
+    } else if (isCrystal) {
+        style = isActive ? 'text-indigo-600 border-b-2 border-indigo-400 bg-white/40' : 'text-slate-400 border-b-2 border-transparent hover:text-slate-600';
+    } else {
+        style = isActive ? 'text-white border-b-2 border-white bg-white/10' : 'text-stone-500 border-transparent hover:text-stone-300 bg-black/20';
+    }
+    
+    return (
+      <button 
+          onClick={() => setActiveTab(id)}
+          className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all ${style}`}
+      >
+          {label}
+      </button>
+    );
+});
+
+// --- MAIN CONTROLS COMPONENT ---
+
+export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, setSettings }) => {
+  const [activeTab, setActiveTab] = useState<Tab>('preamp');
+  
+  if (!isOpen) return null;
+
+  const theme = settings.theme;
+  const isFlux = theme === 'flux';
+  const isTerminal = theme === 'terminal';
+  const isVintage = theme === 'vintage';
+  const isNeon = theme === 'neon';
+  const isCrystal = theme === 'crystal';
+
+  const updateSetting = (key: keyof AudioSettings, value: number | string | boolean) => {
+    const newSettings = { ...settings, [key]: value };
+    setSettings(newSettings);
+    audioEngine.updateSettings(newSettings);
+  };
+
+  const loadPreset = (name: PresetName) => {
+    const preset = PRESETS[name];
+    const newSettings = { 
+        ...settings, 
+        ...DEFAULT_PATCH_STATE, 
+        ...preset 
+    };
+    setSettings(newSettings);
+    audioEngine.updateSettings(newSettings);
+  };
 
   // --- LAYOUT ---
 
@@ -477,10 +337,10 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
 
         {/* TABS */}
         <div className={`flex shrink-0 ${isVintage ? 'bg-[#c5b595] border-b border-[#a89878]' : ''}`}>
-            <TabButton id="preamp" label="Pre-Amp" />
-            <TabButton id="synthesis" label="Synthesis" />
-            <TabButton id="effects" label="Effects" />
-            <TabButton id="system" label="System" />
+            <TabButton id="preamp" label="Pre-Amp" activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
+            <TabButton id="synthesis" label="Synthesis" activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
+            <TabButton id="effects" label="Effects" activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
+            <TabButton id="system" label="System" activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
         </div>
 
         {/* SCROLLABLE CONTENT AREA */}
@@ -489,47 +349,43 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
             {/* --- TAB: PRE-AMP (Tone, EQ, Drive) --- */}
             {activeTab === 'preamp' && (
                 <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    {/* Master & Drive */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                         <div className="space-y-8">
                             <div className="space-y-6">
                                 <h3 className={`text-xs font-black uppercase tracking-[0.3em] mb-4 border-b pb-2 ${isVintage ? 'border-[#5c4033] text-[#3d2e1e] opacity-40' : isCrystal ? 'border-slate-300 text-slate-500 opacity-80' : 'border-current opacity-40'}`}>Input Stage</h3>
-                                <Slider label="Master Volume" value={settings.volume} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('volume', parseFloat(e.target.value))} />
-                                <Slider label="Tube Gain" value={settings.distortion} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('distortion', parseFloat(e.target.value))} />
-                                <Slider label="Stereo Width" value={settings.stereoWidth} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('stereoWidth', parseFloat(e.target.value))} />
+                                <Slider label="Master Volume" value={settings.volume} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('volume', parseFloat(e.target.value))} theme={theme} />
+                                <Slider label="Tube Gain" value={settings.distortion} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('distortion', parseFloat(e.target.value))} theme={theme} />
+                                <Slider label="Stereo Width" value={settings.stereoWidth} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('stereoWidth', parseFloat(e.target.value))} theme={theme} />
                             </div>
-                            {/* Compressor Mini */}
                              <div className={`p-6 rounded-lg border ${isVintage ? 'bg-[#e0d6c2] border-[#a89878] shadow-inner' : isCrystal ? 'border-white bg-white/60 shadow-sm' : isNeon ? 'border-fuchsia-900 bg-purple-900/20' : 'bg-white/5 border-white/5'}`}>
                                 <h3 className={`text-xs font-black uppercase tracking-[0.3em] mb-6 text-center ${isVintage ? 'text-[#3d2e1e] opacity-40' : isCrystal ? 'text-slate-500 opacity-80' : 'opacity-40'}`}>Dynamics</h3>
                                 <div className="grid grid-cols-2 gap-8">
-                                    <Slider label="Threshold" value={settings.compressorThreshold} min={-60} max={0} step={1} unit="dB" onChange={(e: any) => updateSetting('compressorThreshold', parseFloat(e.target.value))} />
-                                    <Slider label="Ratio" value={settings.compressorRatio} min={1} max={20} step={0.5} unit=":1" onChange={(e: any) => updateSetting('compressorRatio', parseFloat(e.target.value))} />
+                                    <Slider label="Threshold" value={settings.compressorThreshold} min={-60} max={0} step={1} unit="dB" onChange={(e: any) => updateSetting('compressorThreshold', parseFloat(e.target.value))} theme={theme} />
+                                    <Slider label="Ratio" value={settings.compressorRatio} min={1} max={20} step={0.5} unit=":1" onChange={(e: any) => updateSetting('compressorRatio', parseFloat(e.target.value))} theme={theme} />
                                 </div>
                             </div>
                         </div>
 
-                        {/* 3-Band EQ Graphic */}
                         <div className={`p-6 rounded-xl border h-full flex flex-col ${isVintage ? 'bg-[#e0d6c2] border-[#a89878] shadow-inner' : isCrystal ? 'border-white bg-white/60 shadow-sm' : isNeon ? 'border-fuchsia-900 bg-purple-900/20' : 'bg-black/40 border-white/10'}`}>
                             <h3 className={`text-xs font-black uppercase tracking-[0.3em] mb-6 text-center ${isVintage ? 'text-[#3d2e1e] opacity-60' : isCrystal ? 'text-slate-500 opacity-80' : 'opacity-60'}`}>Tone Stack</h3>
                             <div className="flex-1 flex justify-between items-center px-4 md:px-8 gap-4">
-                                <Slider vertical label="Bass" value={settings.eqBass} min={-10} max={10} step={1} unit="dB" onChange={(e: any) => updateSetting('eqBass', parseFloat(e.target.value))} />
-                                <Slider vertical label="Middle" value={settings.eqMid} min={-10} max={10} step={1} unit="dB" onChange={(e: any) => updateSetting('eqMid', parseFloat(e.target.value))} />
-                                <Slider vertical label="Treble" value={settings.eqTreble} min={-10} max={10} step={1} unit="dB" onChange={(e: any) => updateSetting('eqTreble', parseFloat(e.target.value))} />
+                                <Slider vertical label="Bass" value={settings.eqBass} min={-10} max={10} step={1} unit="dB" onChange={(e: any) => updateSetting('eqBass', parseFloat(e.target.value))} theme={theme} />
+                                <Slider vertical label="Middle" value={settings.eqMid} min={-10} max={10} step={1} unit="dB" onChange={(e: any) => updateSetting('eqMid', parseFloat(e.target.value))} theme={theme} />
+                                <Slider vertical label="Treble" value={settings.eqTreble} min={-10} max={10} step={1} unit="dB" onChange={(e: any) => updateSetting('eqTreble', parseFloat(e.target.value))} theme={theme} />
                             </div>
                         </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-6">
-                         <ToggleBtn label="Octave Pedal" active={settings.octavePedal} onClick={() => updateSetting('octavePedal', !settings.octavePedal)} />
-                         <ToggleBtn label="Shift +12" active={settings.octaveShift} onClick={() => updateSetting('octaveShift', !settings.octaveShift)} />
+                         <ToggleBtn label="Octave Pedal" active={settings.octavePedal} onClick={() => updateSetting('octavePedal', !settings.octavePedal)} theme={theme} />
+                         <ToggleBtn label="Shift +12" active={settings.octaveShift} onClick={() => updateSetting('octaveShift', !settings.octaveShift)} theme={theme} />
                     </div>
                 </div>
             )}
 
-            {/* --- TAB: SYNTHESIS (Wave, Filter, Envelope) --- */}
+            {/* --- TAB: SYNTHESIS --- */}
             {activeTab === 'synthesis' && (
                 <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                     {/* Oscillator */}
                      <div>
                         <h3 className={`text-xs font-black uppercase tracking-[0.3em] mb-4 border-b pb-2 ${isVintage ? 'border-[#5c4033] text-[#3d2e1e] opacity-40' : isCrystal ? 'border-slate-300 text-slate-500 opacity-80' : 'border-current opacity-40'}`}>Oscillator Core</h3>
                         <div className="flex gap-4 mb-8">
@@ -556,73 +412,67 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
                             ))}
                         </div>
                         <div className="grid grid-cols-2 gap-12">
-                             <Slider label="Sub Osc Mix" value={settings.subLevel} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('subLevel', parseFloat(e.target.value))} />
-                             <Slider label="Fret Noise" value={settings.noiseLevel} min={0} max={0.5} step={0.01} unit="%" onChange={(e: any) => updateSetting('noiseLevel', parseFloat(e.target.value))} />
+                             <Slider label="Sub Osc Mix" value={settings.subLevel} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('subLevel', parseFloat(e.target.value))} theme={theme} />
+                             <Slider label="Fret Noise" value={settings.noiseLevel} min={0} max={0.5} step={0.01} unit="%" onChange={(e: any) => updateSetting('noiseLevel', parseFloat(e.target.value))} theme={theme} />
                         </div>
                      </div>
 
                      <div className={`h-px w-full ${isVintage ? 'bg-[#5c4033] opacity-20' : isCrystal ? 'bg-slate-300' : 'bg-current opacity-10'}`}></div>
 
-                     {/* Filter */}
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                         <div className="space-y-6">
                             <h3 className={`text-xs font-black uppercase tracking-[0.3em] mb-4 border-b pb-2 ${isVintage ? 'border-[#5c4033] text-[#3d2e1e] opacity-40' : isCrystal ? 'border-slate-300 text-slate-500 opacity-80' : 'border-current opacity-40'}`}>Filter (VCF)</h3>
-                            <Slider label="Cutoff" value={settings.tone} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('tone', parseFloat(e.target.value))} />
-                            <Slider label="Resonance" value={settings.filterResonance} min={0} max={0.9} step={0.01} unit="%" onChange={(e: any) => updateSetting('filterResonance', parseFloat(e.target.value))} />
-                            <Slider label="Envelope Depth" value={settings.filterEnvAmount} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('filterEnvAmount', parseFloat(e.target.value))} />
+                            <Slider label="Cutoff" value={settings.tone} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('tone', parseFloat(e.target.value))} theme={theme} />
+                            <Slider label="Resonance" value={settings.filterResonance} min={0} max={0.9} step={0.01} unit="%" onChange={(e: any) => updateSetting('filterResonance', parseFloat(e.target.value))} theme={theme} />
+                            <Slider label="Envelope Depth" value={settings.filterEnvAmount} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('filterEnvAmount', parseFloat(e.target.value))} theme={theme} />
                         </div>
 
                         <div className="space-y-6">
                              <h3 className={`text-xs font-black uppercase tracking-[0.3em] mb-4 border-b pb-2 ${isVintage ? 'border-[#5c4033] text-[#3d2e1e] opacity-40' : isCrystal ? 'border-slate-300 text-slate-500 opacity-80' : 'border-current opacity-40'}`}>Envelope (VCA)</h3>
                              <div className="grid grid-cols-2 gap-6">
-                                <Slider label="Attack" value={settings.attack} min={0.001} max={0.2} step={0.001} onChange={(e: any) => updateSetting('attack', parseFloat(e.target.value))} />
-                                <Slider label="Release" value={settings.release} min={0.05} max={3.0} step={0.05} onChange={(e: any) => updateSetting('release', parseFloat(e.target.value))} />
+                                <Slider label="Attack" value={settings.attack} min={0.001} max={0.2} step={0.001} onChange={(e: any) => updateSetting('attack', parseFloat(e.target.value))} theme={theme} />
+                                <Slider label="Release" value={settings.release} min={0.05} max={3.0} step={0.05} onChange={(e: any) => updateSetting('release', parseFloat(e.target.value))} theme={theme} />
                              </div>
-                             <Slider label="Sustain" value={settings.sustain} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('sustain', parseFloat(e.target.value))} />
-                             <Slider label="Glide" value={settings.glideTime} min={0} max={0.5} step={0.01} unit="s" onChange={(e: any) => updateSetting('glideTime', parseFloat(e.target.value))} />
+                             <Slider label="Sustain" value={settings.sustain} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('sustain', parseFloat(e.target.value))} theme={theme} />
+                             <Slider label="Glide" value={settings.glideTime} min={0} max={0.5} step={0.01} unit="s" onChange={(e: any) => updateSetting('glideTime', parseFloat(e.target.value))} theme={theme} />
                         </div>
                      </div>
                 </div>
             )}
 
-            {/* --- TAB: EFFECTS (Mod, Delay, Reverb) --- */}
+            {/* --- TAB: EFFECTS --- */}
             {activeTab === 'effects' && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Modulation I */}
                         <div className={`p-5 rounded-xl border space-y-6 ${isVintage ? 'bg-[#e0d6c2] border-[#a89878] shadow-inner' : isCrystal ? 'border-white bg-white/60 shadow-sm' : isNeon ? 'border-fuchsia-900 bg-purple-900/20' : 'bg-black/30 border-white/10'}`}>
                              <h3 className={`text-xs font-black uppercase tracking-[0.2em] text-center mb-2 ${isVintage ? 'text-[#3d2e1e] opacity-50' : isCrystal ? 'text-slate-500 opacity-80' : 'opacity-50'}`}>Modulation I</h3>
-                             <Slider label="Chorus" value={settings.chorus} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('chorus', parseFloat(e.target.value))} />
-                             <Slider label="Vibrato" value={settings.vibrato} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('vibrato', parseFloat(e.target.value))} />
+                             <Slider label="Chorus" value={settings.chorus} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('chorus', parseFloat(e.target.value))} theme={theme} />
+                             <Slider label="Vibrato" value={settings.vibrato} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('vibrato', parseFloat(e.target.value))} theme={theme} />
                         </div>
 
-                        {/* Modulation II (New Pedals) */}
                         <div className={`p-5 rounded-xl border space-y-6 ${isVintage ? 'bg-[#e0d6c2] border-[#a89878] shadow-inner' : isCrystal ? 'border-white bg-white/60 shadow-sm' : isNeon ? 'border-fuchsia-900 bg-purple-900/20' : 'bg-black/30 border-white/10'}`}>
                              <h3 className={`text-xs font-black uppercase tracking-[0.2em] text-center mb-2 ${isVintage ? 'text-[#3d2e1e] opacity-50' : isCrystal ? 'text-slate-500 opacity-80' : 'opacity-50'}`}>Modulation II</h3>
-                             {/* Phaser */}
                              <div className={`space-y-4 border-b pb-4 ${isVintage ? 'border-[#a89878]' : isCrystal ? 'border-slate-300/50' : 'border-white/10'}`}>
-                                <Slider label="Phaser Mix" value={settings.phaserMix} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('phaserMix', parseFloat(e.target.value))} />
-                                <Slider label="Rate" value={settings.phaserRate} min={0.1} max={5} step={0.1} unit="Hz" onChange={(e: any) => updateSetting('phaserRate', parseFloat(e.target.value))} />
+                                <Slider label="Phaser Mix" value={settings.phaserMix} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('phaserMix', parseFloat(e.target.value))} theme={theme} />
+                                <Slider label="Rate" value={settings.phaserRate} min={0.1} max={5} step={0.1} unit="Hz" onChange={(e: any) => updateSetting('phaserRate', parseFloat(e.target.value))} theme={theme} />
                              </div>
-                             {/* Tremolo */}
                              <div className="space-y-4 pt-2">
-                                <Slider label="Tremolo Depth" value={settings.tremoloDepth} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('tremoloDepth', parseFloat(e.target.value))} />
-                                <Slider label="Rate" value={settings.tremoloRate} min={0.5} max={10} step={0.1} unit="Hz" onChange={(e: any) => updateSetting('tremoloRate', parseFloat(e.target.value))} />
+                                <Slider label="Tremolo Depth" value={settings.tremoloDepth} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('tremoloDepth', parseFloat(e.target.value))} theme={theme} />
+                                <Slider label="Rate" value={settings.tremoloRate} min={0.5} max={10} step={0.1} unit="Hz" onChange={(e: any) => updateSetting('tremoloRate', parseFloat(e.target.value))} theme={theme} />
                              </div>
                         </div>
 
-                        {/* Space & Time */}
                         <div className={`p-5 rounded-xl border space-y-6 ${isVintage ? 'bg-[#e0d6c2] border-[#a89878] shadow-inner' : isCrystal ? 'border-white bg-white/60 shadow-sm' : isNeon ? 'border-fuchsia-900 bg-purple-900/20' : 'bg-black/30 border-white/10'}`}>
                              <h3 className={`text-xs font-black uppercase tracking-[0.2em] text-center mb-2 ${isVintage ? 'text-[#3d2e1e] opacity-50' : isCrystal ? 'text-slate-500 opacity-80' : 'opacity-50'}`}>Time & Space</h3>
-                             <Slider label="Delay Mix" value={settings.delayMix} min={0} max={0.8} step={0.01} unit="%" onChange={(e: any) => updateSetting('delayMix', parseFloat(e.target.value))} />
-                             <Slider label="Time" value={settings.delayTime} min={0.05} max={1.0} step={0.01} unit="s" onChange={(e: any) => updateSetting('delayTime', parseFloat(e.target.value))} />
-                             <Slider label="Reverb" value={settings.reverb} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('reverb', parseFloat(e.target.value))} />
+                             <Slider label="Delay Mix" value={settings.delayMix} min={0} max={0.8} step={0.01} unit="%" onChange={(e: any) => updateSetting('delayMix', parseFloat(e.target.value))} theme={theme} />
+                             <Slider label="Time" value={settings.delayTime} min={0.05} max={1.0} step={0.01} unit="s" onChange={(e: any) => updateSetting('delayTime', parseFloat(e.target.value))} theme={theme} />
+                             <Slider label="Reverb" value={settings.reverb} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('reverb', parseFloat(e.target.value))} theme={theme} />
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* --- TAB: SYSTEM (Presets, Strings, Visuals) --- */}
+            {/* --- TAB: SYSTEM --- */}
             {activeTab === 'system' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div>
@@ -664,13 +514,13 @@ export const Controls: React.FC<ControlsProps> = ({ isOpen, onClose, settings, s
 
                     <div className="space-y-8">
                         <h3 className={`text-xs font-black uppercase tracking-[0.3em] mb-6 border-b pb-2 ${isVintage ? 'border-[#5c4033] text-[#3d2e1e] opacity-40' : isCrystal ? 'border-slate-300 text-slate-500 opacity-80' : 'border-current opacity-40'}`}>Instrument Setup</h3>
-                        <ToggleBtn label={settings.isMonophonic ? "Monophonic (Real Bass)" : "Polyphonic (Tapping)"} active={settings.isMonophonic} onClick={() => updateSetting('isMonophonic', !settings.isMonophonic)} />
+                        <ToggleBtn label={settings.isMonophonic ? "Monophonic (Real Bass)" : "Polyphonic (Tapping)"} active={settings.isMonophonic} onClick={() => updateSetting('isMonophonic', !settings.isMonophonic)} theme={theme} />
                         
-                        <Slider label="String Count" value={settings.stringCount} min={4} max={8} step={1} onChange={(e: any) => updateSetting('stringCount', parseInt(e.target.value))} />
-                        <Slider label="Fret Range" value={settings.fretCount} min={10} max={14} step={1} onChange={(e: any) => updateSetting('fretCount', parseInt(e.target.value))} />
-                        <Slider label="Haptic Feedback" value={settings.vibrationIntensity} min={0} max={5} step={0.1} unit="px" onChange={(e: any) => updateSetting('vibrationIntensity', parseFloat(e.target.value))} />
-                        <Slider label="Velocity Sens" value={settings.velocitySensitivity} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('velocitySensitivity', parseFloat(e.target.value))} />
-                        <ToggleBtn label="Show Note Names" active={settings.showNotes} onClick={() => updateSetting('showNotes', !settings.showNotes)} />
+                        <Slider label="String Count" value={settings.stringCount} min={4} max={8} step={1} onChange={(e: any) => updateSetting('stringCount', parseInt(e.target.value))} theme={theme} />
+                        <Slider label="Fret Range" value={settings.fretCount} min={10} max={14} step={1} onChange={(e: any) => updateSetting('fretCount', parseInt(e.target.value))} theme={theme} />
+                        <Slider label="Haptic Feedback" value={settings.vibrationIntensity} min={0} max={5} step={0.1} unit="px" onChange={(e: any) => updateSetting('vibrationIntensity', parseFloat(e.target.value))} theme={theme} />
+                        <Slider label="Velocity Sens" value={settings.velocitySensitivity} min={0} max={1} step={0.01} unit="%" onChange={(e: any) => updateSetting('velocitySensitivity', parseFloat(e.target.value))} theme={theme} />
+                        <ToggleBtn label="Show Note Names" active={settings.showNotes} onClick={() => updateSetting('showNotes', !settings.showNotes)} theme={theme} />
                     </div>
                 </div>
             )}

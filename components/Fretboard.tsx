@@ -41,8 +41,6 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
 
   // State Refs
   const touchesRef = useRef<Map<number, TouchData>>(new Map());
-  // We keep track of what SHOULD be playing. 
-  // Key = unique identifier for the note (e.g., 'string-0' for mono, 'touch-123' for poly)
   const activeNoteIdsRef = useRef<Map<string, { touchId: number, freq: number, stringIndex: number }>>(new Map());
   const isMouseDownRef = useRef(false);
   
@@ -56,7 +54,6 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
 
   // Visual State
   const [visualTouches, setVisualTouches] = useState<Map<number, TouchData>>(new Map());
-  const [vibratingStrings, setVibratingStrings] = useState<Set<number>>(new Set());
 
   // --- Visual Sync ---
   const scheduleVisualUpdate = useCallback(() => {
@@ -64,11 +61,6 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
     
     animationFrameRef.current = requestAnimationFrame(() => {
       setVisualTouches(new Map(touchesRef.current));
-      
-      const vibrating = new Set<number>();
-      touchesRef.current.forEach((t) => vibrating.add(t.stringIndex));
-      setVibratingStrings(vibrating);
-      
       animationFrameRef.current = 0;
     });
   }, []);
@@ -445,9 +437,8 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
       };
       fretLineClass = 'w-[1px] bg-green-500/40';
   } else if (isVintage) {
-      // Light Maple configuration with horizontal grain
       containerStyle = {
-          backgroundColor: '#dcb280', // Lighter maple base
+          backgroundColor: '#dcb280', 
           backgroundImage: `
             radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1) 0%, rgba(60,40,20,0.2) 100%),
             url("https://www.transparenttextures.com/patterns/wood-pattern.png"),
@@ -475,7 +466,6 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
       };
       fretLineClass = 'w-[2px] bg-[#8d6e63] opacity-70 shadow-[0_1px_0_rgba(255,255,255,0.3)]'; 
   } else if (isNeon) {
-      // Neon: Dark purple background with distinct grid
       containerStyle = {
           backgroundColor: '#0f0518',
           backgroundImage: `
@@ -487,7 +477,6 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
       };
       fretLineClass = 'w-[1px] bg-fuchsia-600 shadow-[0_0_10px_#d946ef]';
   } else if (isCrystal) {
-      // Crystal: Light, airy, glass-like
       containerStyle = {
           background: 'linear-gradient(to bottom, #f8fafc 0%, #e2e8f0 100%)',
           backgroundImage: `
@@ -564,6 +553,18 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
   const nutConfig = getNutStyle();
   const verticalPadding = 'py-10 md:py-14';
 
+  // --- STYLE INJECTION FOR VIBRATION (CSS Variable Approach) ---
+  // Using direct inline styles for animation is more performant than injecting <style> tags on every frame
+  const vibrationStyles = `
+    @keyframes vibrate {
+      0% { transform: translateY(0); }
+      25% { transform: translateY(calc(var(--vibration-amp) * -1)); }
+      50% { transform: translateY(0); }
+      75% { transform: translateY(var(--vibration-amp)); }
+      100% { transform: translateY(0); }
+    }
+  `;
+
   return (
     <div 
       ref={containerRef}
@@ -572,9 +573,10 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
         ...containerStyle,
         touchAction: 'none',
         WebkitUserSelect: 'none',
-        '--vibration-amp': `${settings.vibrationIntensity}px`,
       } as React.CSSProperties}
     >
+        <style>{vibrationStyles}</style>
+
       {/* Nut Area */}
       <div 
         className={`absolute top-0 bottom-0 left-0 flex flex-col justify-between ${nutConfig.container}`}
@@ -589,11 +591,7 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
         {/* Nut Slots and Labels */}
         <div className={`absolute inset-0 flex flex-col justify-between ${verticalPadding} z-10`}>
             {currentTuning.map((stringData, i) => {
-                 // Calculate Visual Thickness:
-                 // Top string (i=0) is High Pitch (Thin).
-                 // Bottom string (i=Max) is Low Pitch (Thick).
                  const thickness = 3.0 + (i * 0.8);
-                 
                  const grooveHeight = thickness + 4; 
 
                  return (
@@ -631,7 +629,6 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
                                 <div className="absolute bottom-1/2 mb-1 left-2 text-[10px] font-bold text-fuchsia-500 tracking-widest drop-shadow-[0_0_5px_#d946ef] z-40">
                                     {stringData.name}
                                 </div>
-                                {/* Neon glowing slot */}
                                 <div className="w-full flex justify-end">
                                     <div className="w-full h-[2px] bg-fuchsia-600 shadow-[0_0_10px_#d946ef]"></div>
                                 </div>
@@ -742,7 +739,6 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
                       {isOctave ? <><MarkerDot /><MarkerDot /></> : <MarkerDot />}
                  </div>
 
-                 {/* Fret Number */}
                  <div className="absolute bottom-3 md:bottom-4 flex justify-center w-full" style={{ left: `${percent}%`, transform: 'translateX(-50%)' }}>
                     <span className={`text-[10px] font-bold tracking-tighter opacity-50 ${
                         isFlux ? 'text-cyan-600 font-mono' 
@@ -763,16 +759,26 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
       {/* Strings (Z-Index 30 - Above Nut Z-20) */}
       <div className={`absolute inset-0 flex flex-col justify-between pointer-events-none ${verticalPadding} z-30`}>
         {currentTuning.map((stringData, index) => {
-          // Thickness Calculation:
-          // Top string (i=0) is High Pitch (Thin).
-          // Bottom string (i=Max) is Low Pitch (Thick).
           const thickness = 3.0 + (index * 0.8);
           
-          const isVibrating = vibratingStrings.has(index);
+          // --- VIBRATION CALCULATION (CSS VARS) ---
+          const activeTouch = Array.from(visualTouches.values()).find((t: TouchData) => t.stringIndex === index);
+          const isVibrating = !!activeTouch;
+          const velocity = activeTouch?.velocity ?? 0;
           
+          // Inline styles for CSS Variables to drive the keyframe animation
+          const dynamicStyle = isVibrating ? {
+              animation: 'vibrate 0.06s infinite linear',
+              animationDuration: `${0.08 - (velocity * 0.04)}s`,
+              '--vibration-amp': `${settings.vibrationIntensity * (0.5 + velocity)}px`,
+          } as React.CSSProperties : {};
+
           return (
             <div key={stringData.name} className="relative w-full flex items-center h-full group">
-              <div className={`w-full relative flex items-center justify-center ${isVibrating ? 'animate-vibrate' : ''}`}>
+              <div 
+                  className={`w-full relative flex items-center justify-center`}
+                  style={dynamicStyle}
+              >
                 
                 {isFlux ? (
                     <>
@@ -802,7 +808,6 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
                     </>
                 ) : isCrystal ? (
                     <>
-                        {/* Shadow for depth on light background */}
                         <div className="absolute top-2 w-full bg-indigo-900/10 blur-[1px]" style={{ height: `${thickness + 2}px` }}></div>
                         <div 
                             className="w-full relative"
@@ -914,25 +919,6 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
            })}
          </div>
       )}
-
-      {/* Vibration Animation Injection */}
-      <style>{`
-        ${Array.from(visualTouches.values()).map((t: TouchData) => `
-            .group:nth-child(${t.stringIndex + 1}) .animate-vibrate {
-                animation-duration: ${0.08 - (t.velocity * 0.04)}s !important;
-                --vibration-amp: ${settings.vibrationIntensity * (0.5 + t.velocity)}px !important;
-            }
-        `).join('\n')}
-      
-        @keyframes vibrate {
-          0% { transform: translateY(0); }
-          25% { transform: translateY(calc(var(--vibration-amp) * -1)); }
-          50% { transform: translateY(0); }
-          75% { transform: translateY(var(--vibration-amp)); }
-          100% { transform: translateY(0); }
-        }
-        .animate-vibrate { animation: vibrate 0.06s infinite linear; }
-      `}</style>
     </div>
   );
 };

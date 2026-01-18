@@ -102,7 +102,7 @@ const App: React.FC = () => {
       </div>
 
       {/* Main Interface */}
-      <div className={`transition-opacity duration-1000 ${hasStarted ? 'opacity-100' : 'opacity-0 scale-95'}`}>
+      <div className={`absolute inset-0 w-full h-full transition-all duration-1000 ${hasStarted ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
          <Fretboard isMenuOpen={isMenuOpen} settings={settings} />
       </div>
 

@@ -31,7 +31,7 @@ export const getTuning = (count: number) => {
 };
 
 // Default constants for fallback
-export const DEFAULT_TUNING = getTuning(6);
+export const DEFAULT_TUNING = getTuning(4);
 export const DEFAULT_FRET_COUNT = 12;
 
 export const MARKERS = [3, 5, 7, 9, 12, 15];

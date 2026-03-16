@@ -37,7 +37,7 @@ const App: React.FC = () => {
     velocitySensitivity: 0.5, 
     isMonophonic: false,
     theme: 'vintage', // Default Theme
-    stringCount: 6, // 6 Strings: B to C
+    stringCount: 4, // 4 Strings: E to G
     fretCount: 12
   });
 

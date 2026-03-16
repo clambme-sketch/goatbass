@@ -774,7 +774,7 @@ export const Fretboard: React.FC<FretboardProps> = ({ isMenuOpen, settings }) =>
           } as React.CSSProperties : {};
 
           return (
-            <div key={stringData.name} className="relative w-full flex items-center h-full group">
+            <div key={stringData.name} className="relative w-full flex items-center flex-1 group">
               <div 
                   className={`w-full relative flex items-center justify-center`}
                   style={dynamicStyle}

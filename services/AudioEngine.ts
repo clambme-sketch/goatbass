@@ -94,7 +94,7 @@ class AudioEngine {
     showNotes: false,
     vibrationIntensity: 1.5,
     theme: 'vintage',
-    stringCount: 6,
+    stringCount: 4,
     fretCount: 12,
   };
 

@@ -1,13 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Circle, Square, Menu } from 'lucide-react';
 import { Fretboard } from './components/Fretboard';
 import { Controls } from './components/Controls';
-import { AudioSettings } from './types';
+import { RecordingLibrary } from './components/RecordingLibrary';
+import { AudioSettings, Recording } from './types';
 import { audioEngine } from './services/AudioEngine';
 
 const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [isReady, setIsReady] = useState(false); // Animation trigger
+  
+  // Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
+  const [recordings, setRecordings] = useState<Recording[]>([]);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const nextRecOrdinal = useRef(1);
   
   const [settings, setSettings] = useState<AudioSettings>({
     volume: 0.85,
@@ -63,6 +72,42 @@ const App: React.FC = () => {
     setHasStarted(true);
   };
 
+  const toggleRecording = () => {
+    if (!isRecording) {
+      audioEngine.startRecording();
+      setIsRecording(true);
+      setRecordingStartTime(Date.now());
+    } else {
+      const blob = audioEngine.stopRecording();
+      setIsRecording(false);
+      if (blob && recordingStartTime) {
+        const duration = (Date.now() - recordingStartTime) / 1000;
+        const newRecord: Recording = {
+          id: Date.now().toString(),
+          name: `Bass Recording ${nextRecOrdinal.current++}`,
+          blob: blob,
+          url: URL.createObjectURL(blob),
+          duration
+        };
+        setRecordings(prev => [...prev, newRecord]);
+        setIsLibraryOpen(true);
+      }
+      setRecordingStartTime(null);
+    }
+  };
+
+  const handleRenameRecording = (id: string, newName: string) => {
+    setRecordings(prev => prev.map(r => r.id === id ? { ...r, name: newName } : r));
+  };
+
+  const handleDeleteRecording = (id: string) => {
+    setRecordings(prev => {
+      const toDelete = prev.find(r => r.id === id);
+      if (toDelete) URL.revokeObjectURL(toDelete.url);
+      return prev.filter(r => r.id !== id);
+    });
+  };
+
   const theme = settings.theme;
   const isFlux = theme === 'flux';
   const isTerminal = theme === 'terminal';
@@ -82,6 +127,73 @@ const App: React.FC = () => {
   return (
     <div className="relative w-full h-full overflow-hidden select-none touch-none font-sans" style={bgStyle}>
       
+      {/* HUD / Recording & Library Toggle (Top Left) */}
+      <div className={`absolute top-6 left-8 z-50 transition-all duration-500 ${hasStarted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+        <div className="flex flex-col gap-4 items-start w-72">
+          <div className="flex gap-4">
+            {/* Record Toggle */}
+            <button 
+              onClick={toggleRecording}
+              className={`p-4 rounded-full shadow-2xl backdrop-blur-md transition-all duration-300 group hover:scale-105 active:scale-95 ${
+                isRecording
+                  ? 'bg-red-500/80 text-white shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-pulse'
+                  : isFlux ? 'bg-cyan-950/30 border border-cyan-500/50 text-red-400 shadow-[0_0_20px_rgba(6,182,212,0.2)]' 
+                  : isTerminal ? 'bg-black border-2 border-red-900 text-red-500 hover:bg-red-900/50 rounded-none'
+                  : isVintage ? 'bg-[#3b2b20] border-2 border-[#8b6b4b] text-red-400 shadow-[0_4px_10px_rgba(0,0,0,0.5)]'
+                  : isNeon ? 'bg-black/50 border-2 border-fuchsia-500 text-red-400 shadow-[0_0_15px_#d946ef]'
+                  : isCrystal ? 'bg-white/80 border border-rose-200 text-red-500 shadow-lg hover:bg-white hover:text-red-600'
+                  : 'bg-white/5 border border-white/10 text-red-400 hover:bg-white/10'
+              }`}
+            >
+              {isRecording ? <Square size={24} fill="currentColor" /> : <Circle size={24} fill="currentColor" />}
+            </button>
+            
+            {/* Library Toggle */}
+            <button 
+              onClick={() => setIsLibraryOpen(!isLibraryOpen)}
+              className={`p-4 rounded-full shadow-2xl backdrop-blur-md transition-all duration-300 group hover:scale-105 active:scale-95 ${
+                  isFlux ? 'bg-cyan-950/30 border border-cyan-500/50 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)]' 
+                  : isTerminal ? 'bg-black border-2 border-green-700 text-green-500 hover:bg-green-900/50 rounded-none'
+                  : isVintage ? 'bg-[#3b2b20] border-2 border-[#8b6b4b] text-[#e3caa5] shadow-[0_4px_10px_rgba(0,0,0,0.5)]'
+                  : isNeon ? 'bg-black/50 border-2 border-fuchsia-500 text-fuchsia-400 shadow-[0_0_15px_#d946ef]'
+                  : isCrystal ? 'bg-white/80 border border-white text-indigo-500 shadow-lg hover:bg-white hover:text-indigo-600'
+                  : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
+              } ${isLibraryOpen ? 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-black' : ''}`}
+            >
+              <Menu size={24} />
+              {recordings.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
+                  {recordings.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Recording Library Panel */}
+          {isLibraryOpen && (
+            <div className={`w-full p-4 rounded-xl shadow-2xl backdrop-blur-xl border pointer-events-auto ${
+                isFlux ? 'bg-slate-900/90 border-cyan-500/30' 
+                : isTerminal ? 'bg-black/90 border-green-700'
+                : isVintage ? 'bg-[#2a1d15]/95 border-[#8b6b4b]'
+                : isNeon ? 'bg-[#0f0518]/95 border-fuchsia-500/50'
+                : isCrystal ? 'bg-white/95 border-indigo-100'
+                : 'bg-zinc-900/90 border-white/10'
+            }`}>
+              <h3 className={`text-sm font-bold mb-3 uppercase tracking-wider ${
+                isTerminal ? 'text-green-500' : isCrystal ? 'text-indigo-900' : 'text-white'
+              }`}>
+                Recordings
+              </h3>
+              <RecordingLibrary 
+                recordings={recordings} 
+                onRename={handleRenameRecording} 
+                onDelete={handleDeleteRecording} 
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* HUD / Menu Toggle */}
       <div className={`absolute top-6 right-8 z-50 transition-all duration-500 ${hasStarted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
         <button 

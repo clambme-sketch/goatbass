@@ -64,3 +64,11 @@ export interface ActiveTouch {
 }
 
 export type PresetName = 'Modern' | 'Jazz' | 'Precision' | 'Synth' | 'Upright' | 'Soloist' | 'Dub' | 'Fuzz' | 'Ethereal' | 'Psychedelic';
+
+export interface Recording {
+  id: string;
+  name: string;
+  blob: Blob;
+  url: string;
+  duration: number;
+}

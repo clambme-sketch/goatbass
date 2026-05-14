@@ -55,6 +55,11 @@ class AudioEngine {
     isReleasing: boolean; 
   }> = new Map();
 
+  // Recording
+  private recordingNode: ScriptProcessorNode | null = null;
+  private recordedChunks: Float32Array[][] = [[], []]; // left, right
+  private isRecording = false;
+
   private pluckBuffer: AudioBuffer | null = null;
   private noiseBuffer: AudioBuffer | null = null;
 
@@ -634,6 +639,104 @@ class AudioEngine {
              node.sources.forEach(s => s.disconnect());
         }, 100);
     }
+  }
+
+  public getIsRecording(): boolean {
+    return this.isRecording;
+  }
+
+  public startRecording() {
+    if (!this.ctx || !this.masterGain) return;
+    
+    this.recordedChunks = [[], []];
+    // Create script processor to intercept audio
+    this.recordingNode = this.ctx.createScriptProcessor(4096, 2, 2);
+    
+    this.recordingNode.onaudioprocess = (e) => {
+      if (!this.isRecording) return;
+      const left = e.inputBuffer.getChannelData(0);
+      const right = e.inputBuffer.getChannelData(1);
+      
+      this.recordedChunks[0].push(new Float32Array(left));
+      this.recordedChunks[1].push(new Float32Array(right));
+    };
+    
+    this.masterGain.connect(this.recordingNode);
+    this.recordingNode.connect(this.ctx.destination);
+    
+    this.isRecording = true;
+  }
+
+  public stopRecording(): Blob | null {
+    if (!this.isRecording || !this.ctx) return null;
+    
+    this.isRecording = false;
+    
+    if (this.recordingNode && this.masterGain) {
+      this.masterGain.disconnect(this.recordingNode);
+      this.recordingNode.disconnect();
+      this.recordingNode = null;
+    }
+    
+    return this.exportWAV(this.recordedChunks, this.ctx.sampleRate);
+  }
+
+  private exportWAV(chunks: Float32Array[][], sampleRate: number): Blob {
+    const leftChunks = chunks[0];
+    const rightChunks = chunks[1];
+    let length = 0;
+    for (let i = 0; i < leftChunks.length; i++) length += leftChunks[i].length;
+    
+    const leftBuffer = new Float32Array(length);
+    const rightBuffer = new Float32Array(length);
+    let offset = 0;
+    for (let i = 0; i < leftChunks.length; i++) {
+        leftBuffer.set(leftChunks[i], offset);
+        rightBuffer.set(rightChunks[i], offset);
+        offset += leftChunks[i].length;
+    }
+
+    const interleaved = new Float32Array(length * 2);
+    for (let i = 0; i < length; i++) {
+        interleaved[i * 2] = leftBuffer[i];
+        interleaved[i * 2 + 1] = rightBuffer[i];
+    }
+
+    const dataView = this.encodeWAV(interleaved, sampleRate);
+    return new Blob([dataView.buffer as ArrayBuffer], { type: 'audio/wav' });
+  }
+
+  private encodeWAV(samples: Float32Array, sampleRate: number): DataView {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+
+    const writeString = (view: DataView, offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 2, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 4, true);
+    view.setUint16(32, 4, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++, offset += 2) {
+      let s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+
+    return view;
   }
 }
 
